@@ -1,4 +1,4 @@
-package entity;
+package com.kharlamova.auth_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
