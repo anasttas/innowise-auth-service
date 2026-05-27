@@ -1,6 +1,10 @@
 package com.kharlamova.auth_service.service.impl;
 
 import com.kharlamova.auth_service.dto.*;
+import com.kharlamova.auth_service.exception.InvalidTokenException;
+import com.kharlamova.auth_service.exception.LoginAlreadyExistsException;
+import com.kharlamova.auth_service.exception.LoginNotFoundExcetion;
+import com.kharlamova.auth_service.exception.WrongPasswordException;
 import com.kharlamova.auth_service.mapper.CredentialMapper;
 import com.kharlamova.auth_service.repository.CredentialRepository;
 import com.kharlamova.auth_service.security.JwtProvider;
@@ -28,10 +32,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse login(LoginDto loginDto) {
         Credential credential = credentialRepository.findByLogin(loginDto.getLogin())
-                .orElseThrow(() -> new RuntimeException("Login not found"));
+                .orElseThrow(() -> new LoginNotFoundExcetion("Login not found"));
 
         if(!passwordEncoder.matches(loginDto.getPassword(), credential.getPassword())) {
-            throw new RuntimeException("Wrong password");
+            throw new WrongPasswordException("Wrong password");
         }
 
         final String accessToken = jwtProvider.generateAccessToken(credential);
@@ -47,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
         credentialRepository
                 .findByLogin(registerDto.getLogin())
                 .ifPresent(foundLogin -> {
-                    throw new RuntimeException("Login already exists " + foundLogin.getLogin());
+                    throw new LoginAlreadyExistsException("Login already exists " + foundLogin.getLogin());
                 });
 
         Credential credential = CredentialMapper.makeCredential(registerDto);
@@ -64,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = refreshTokenDto.getRefreshToken();
 
         if (!jwtProvider.validateRefreshToken(refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
+            throw new InvalidTokenException("Invalid refresh token");
         }
 
         Claims claims = jwtProvider.getRefreshClaims(refreshToken);
@@ -72,7 +76,7 @@ public class AuthServiceImpl implements AuthService {
         String login = claims.getSubject();
 
         Credential credential = credentialRepository.findByLogin(login)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new LoginNotFoundExcetion("User not found"));
 
         String newAccessToken = jwtProvider.generateAccessToken(credential);
 
