@@ -1,5 +1,8 @@
 package com.kharlamova.auth_service.service.impl;
 
+import com.kharlamova.auth_service.client.UserRequest;
+import com.kharlamova.auth_service.client.UserResponse;
+import com.kharlamova.auth_service.client.UserServiceClient;
 import com.kharlamova.auth_service.dto.*;
 import com.kharlamova.auth_service.exception.InvalidTokenException;
 import com.kharlamova.auth_service.exception.LoginAlreadyExistsException;
@@ -29,6 +32,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final Map<String, String> refreshStorage = new HashMap<>();
 
+    private final UserServiceClient userServiceClient;
+
     @Override
     public AuthResponse login(LoginDto loginDto) {
         Credential credential = credentialRepository.findByLogin(loginDto.getLogin())
@@ -54,7 +59,18 @@ public class AuthServiceImpl implements AuthService {
                     throw new LoginAlreadyExistsException("Login already exists " + foundLogin.getLogin());
                 });
 
+        UserResponse userResponse = userServiceClient.createUser(
+                new UserRequest(
+                        registerDto.getEmail(),
+                        registerDto.getName(),
+                        registerDto.getSurname(),
+                        registerDto.getBirthDate()
+                )
+        );
+
         Credential credential = CredentialMapper.makeCredential(registerDto);
+
+        credential.setUserId(userResponse.getId());
 
         credential.setPassword(passwordEncoder.encode(registerDto.getPassword()));
 

@@ -8,7 +8,6 @@ public class CredentialMapper {
     public static Credential makeCredential(RegisterDto registerDto) {
         return Credential.builder()
                 .login(registerDto.getLogin())
-                .userId(registerDto.getUserId())
                 .role(Role.USER)
                 .build();
     }
