@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: auth-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build: .
+    container_name: auth-service
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+      JWT_ACCESS_SECRET: dGhpcyBpcyBteSBzZWN1cmUga2V5IGFuZCB5b3UgY2Fubm90IGhhY2sgaXQ=
+      JWT_REFRESH_SECRET: UwRlIJlwTgQfEiUkseywyBUswXAH6HRuJpKGHhIl4c4pcFJgbxFloKijQo6rOvkO
+
+      JWT_ACCESS_EXPIRATION: 1800000
+      JWT_REFRESH_EXPIRATION: 2592000000
+
+      USER_SERVICE_URL: http://localhost:8080/shop
+
+volumes:
+  postgres_data:
