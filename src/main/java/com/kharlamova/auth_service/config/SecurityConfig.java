@@ -1,5 +1,6 @@
-package com.kharlamova.auth_service.security;
+package com.kharlamova.auth_service.config;
 
+import com.kharlamova.auth_service.security.JwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
