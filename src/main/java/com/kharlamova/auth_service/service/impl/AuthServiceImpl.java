@@ -4,10 +4,7 @@ import com.kharlamova.auth_service.client.UserRequest;
 import com.kharlamova.auth_service.client.UserResponse;
 import com.kharlamova.auth_service.client.UserServiceClient;
 import com.kharlamova.auth_service.dto.*;
-import com.kharlamova.auth_service.exception.InvalidTokenException;
-import com.kharlamova.auth_service.exception.LoginAlreadyExistsException;
-import com.kharlamova.auth_service.exception.LoginNotFoundExcetion;
-import com.kharlamova.auth_service.exception.WrongPasswordException;
+import com.kharlamova.auth_service.exception.*;
 import com.kharlamova.auth_service.mapper.CredentialMapper;
 import com.kharlamova.auth_service.repository.CredentialRepository;
 import com.kharlamova.auth_service.security.JwtProvider;
@@ -37,14 +34,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse login(LoginDto loginDto) {
         Credential credential = credentialRepository.findByLogin(loginDto.getLogin())
-                .orElseThrow(() -> new LoginNotFoundExcetion("Login not found"));
+                .orElseThrow(() -> new InvalidCredentialsException("Wrong password or login"));
 
         if(!passwordEncoder.matches(loginDto.getPassword(), credential.getPassword())) {
-            throw new WrongPasswordException("Wrong password");
+            throw new InvalidCredentialsException("Wrong password or login");
         }
 
-        final String accessToken = jwtProvider.generateAccessToken(credential);
-        final String refreshToken = jwtProvider.generateRefreshToken(credential);
+        String accessToken = jwtProvider.generateAccessToken(credential);
+        String refreshToken = jwtProvider.generateRefreshToken(credential);
 
         refreshStorage.put(credential.getLogin(), refreshToken);
 
@@ -59,24 +56,40 @@ public class AuthServiceImpl implements AuthService {
                     throw new LoginAlreadyExistsException("Login already exists " + foundLogin.getLogin());
                 });
 
-        UserResponse userResponse = userServiceClient.createUser(
-                new UserRequest(
-                        registerDto.getEmail(),
-                        registerDto.getName(),
-                        registerDto.getSurname(),
-                        registerDto.getBirthDate()
-                )
-        );
+        Long userId = null;
 
-        Credential credential = CredentialMapper.makeCredential(registerDto);
+        try {
+            UserResponse userResponse = userServiceClient.createUser(
+                    new UserRequest(
+                            registerDto.getEmail(),
+                            registerDto.getName(),
+                            registerDto.getSurname(),
+                            registerDto.getBirthDate()
+                    )
+            );
 
-        credential.setUserId(userResponse.getId());
+            userId = userResponse.getId();
 
-        credential.setPassword(passwordEncoder.encode(registerDto.getPassword()));
+            Credential credential = CredentialMapper.makeCredential(registerDto);
 
-        credentialRepository.save(credential);
+            credential.setUserId(userId);
 
-        return new RegisterResponse("User registered successfully");
+            credential.setPassword(passwordEncoder.encode(registerDto.getPassword()));
+
+            credentialRepository.save(credential);
+
+            return new RegisterResponse("User registered successfully");
+        }
+        catch (Exception e) {
+            if(userId != null){
+                try {
+                    userServiceClient.rollbackUserCreation(userId);
+                } catch(Exception rollbackException){
+                    throw new RegistrationException("Registration failed and rollback failed", rollbackException);
+                }
+            }
+            throw new RegistrationException("Failed to register user", e);
+        }
     }
 
     @Override
@@ -91,12 +104,20 @@ public class AuthServiceImpl implements AuthService {
 
         String login = claims.getSubject();
 
+        String storedToken = refreshStorage.get(login);
+
+        if(storedToken == null || !storedToken.equals(refreshToken)) {
+            throw new InvalidTokenException("Refresh token expired or revoked");
+        }
+
         Credential credential = credentialRepository.findByLogin(login)
-                .orElseThrow(() -> new LoginNotFoundExcetion("User not found"));
+                .orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
         String newAccessToken = jwtProvider.generateAccessToken(credential);
 
         String newRefreshToken = jwtProvider.generateRefreshToken(credential);
+
+        refreshStorage.put(login, newRefreshToken);
 
         return new AuthResponse(newAccessToken, newRefreshToken);
     }
@@ -104,5 +125,17 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public boolean validate(TokenDto tokenDto) {
         return jwtProvider.validateAccessToken(tokenDto.getToken());
+    }
+
+    @Override
+    public RegisterResponse changeRole(UpdateRoleRequest updateRoleRequest) {
+        Credential credential = credentialRepository.findByLogin(updateRoleRequest.getLogin())
+                .orElseThrow(() -> new InvalidCredentialsException("Wrong password or login"));
+
+        credential.setRole(updateRoleRequest.getRole());
+
+        credentialRepository.save(credential);
+
+        return new RegisterResponse("User role updated successfully");
     }
 }
