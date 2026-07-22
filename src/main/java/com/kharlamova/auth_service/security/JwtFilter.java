@@ -1,5 +1,6 @@
 package com.kharlamova.auth_service.security;
 
+import com.kharlamova.auth_service.exception.InvalidCredentialsException;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -37,8 +38,7 @@ public class JwtFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         if (!jwtProvider.validateAccessToken(token)) {
-            filterChain.doFilter(request, response);
-            return;
+            throw new InvalidCredentialsException("Invalid JWT token");
         }
 
         Claims claims = jwtProvider.getAccessClaims(token);
@@ -61,5 +61,10 @@ public class JwtFilter extends OncePerRequestFilter {
                 .setAuthentication(authentication);
 
         filterChain.doFilter(request, response);
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getServletPath().startsWith("/actuator");
     }
 }

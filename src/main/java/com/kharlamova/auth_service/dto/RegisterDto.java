@@ -1,5 +1,6 @@
 package com.kharlamova.auth_service.dto;
 
+import com.kharlamova.auth_service.entity.Role;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,4 +39,7 @@ public class RegisterDto {
     @Size(min = 8, max = 20, message = "Password should be more than {min} and less than {max} symbols")
     @NotBlank(message = "Password should not be blank")
     private String password;
+
+    @NotNull(message = "Role should not be blank")
+    private Role role;
 }

@@ -10,4 +10,6 @@ public interface AuthService {
     AuthResponse refresh(RefreshTokenDto refreshTokenDto);
 
     boolean validate(TokenDto tokenDto);
+
+    RegisterResponse changeRole(UpdateRoleRequest changeDto);
 }

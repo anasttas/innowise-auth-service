@@ -20,4 +20,10 @@ public class UserServiceClient {
                 UserResponse.class
         );
     }
+
+    public void rollbackUserCreation(Long userId) {
+        restTemplate.delete(
+                userServiceUrl + "/users/" + userId
+        );
+    }
 }
